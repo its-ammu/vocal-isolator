@@ -1,0 +1,13 @@
+[project]
+name = "vocal-isolator"
+version = "0.1.0"
+description = "Isolate vocals from audio using Demucs v4"
+requires-python = ">=3.11"
+dependencies = [
+    "demucs>=4.0",
+    "flask>=3.0",
+    "python-multipart>=0.0.9",
+    "soundfile>=0.12",
+    "audio-separator[gpu]"
+]
+

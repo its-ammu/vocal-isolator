@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocal Isolator — Demucs v4</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d0d0f;
+      --surface: #16161a;
+      --surface-hover: #1c1c21;
+      --border: #2a2a30;
+      --text: #e4e4e7;
+      --text-muted: #71717a;
+      --accent: #a78bfa;
+      --accent-dim: rgba(167, 139, 250, 0.15);
+      --success: #34d399;
+      --error: #f87171;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    main {
+      width: 100%;
+      max-width: 480px;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.25rem;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.9375rem;
+      margin-bottom: 2rem;
+    }
+
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: var(--surface);
+    }
+
+    .upload-zone:hover,
+    .upload-zone.dragover {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .upload-zone input {
+      display: none;
+    }
+
+    .upload-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 1rem;
+      opacity: 0.6;
+    }
+
+    .upload-zone p {
+      font-size: 0.9375rem;
+      color: var(--text-muted);
+    }
+
+    .upload-zone strong {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .formats {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+    }
+
+    .engine-select {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .engine-select label {
+      font-size: 0.9375rem;
+      color: var(--text-muted);
+    }
+
+    .engine-select select {
+      flex: 1;
+      padding: 0.5rem 0.75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9375rem;
+    }
+
+    .status {
+      margin-top: 1.5rem;
+      padding: 1rem 1.25rem;
+      border-radius: 12px;
+      font-size: 0.9375rem;
+      display: none;
+    }
+
+    .status.visible {
+      display: block;
+    }
+
+    .status.processing {
+      background: var(--accent-dim);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .status.success {
+      background: rgba(52, 211, 153, 0.12);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+      color: var(--success);
+    }
+
+    .status.error {
+      background: rgba(248, 113, 113, 0.12);
+      border: 1px solid rgba(248, 113, 113, 0.3);
+      color: var(--error);
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 0.5rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      padding: 0.625rem 1.25rem;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .download-btn:hover {
+      background: #b794f6;
+    }
+
+    .audio-player {
+      width: 100%;
+      margin-top: 1rem;
+      padding: 0.75rem;
+      background: var(--surface);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .audio-player audio {
+      width: 100%;
+      height: 40px;
+    }
+
+    .audio-player audio::-webkit-media-controls-panel {
+      background: var(--surface);
+    }
+
+    .file-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      word-break: break-all;
+    }
+
+    .stem-block {
+      margin-top: 1rem;
+    }
+
+    .stem-block h3 {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Vocal Isolator</h1>
+    <p class="subtitle">Extract vocals from any track</p>
+
+    <div class="engine-select">
+      <label for="engine">Model:</label>
+      <select id="engine" name="engine">
+        <option value="demucs">Demucs v4 (htdemucs)</option>
+      </select>
+    </div>
+
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" id="fileInput" accept=".mp3,.wav,.flac,.ogg,.m4a,.aac">
+      <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      <p><strong>Drop your audio here</strong> or click to browse</p>
+      <p class="formats">MP3, WAV, FLAC, OGG, M4A, AAC</p>
+    </div>
+
+    <div class="status" id="status"></div>
+  </main>
+
+  <script>
+    const uploadZone = document.getElementById('uploadZone');
+    const fileInput = document.getElementById('fileInput');
+    const statusEl = document.getElementById('status');
+    const engineSelect = document.getElementById('engine');
+
+    fetch('/api/engines').then(r => r.json()).then(({ engines }) => {
+      engineSelect.innerHTML = '';
+      for (const [value, label] of Object.entries(engines)) {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = label;
+        engineSelect.appendChild(opt);
+      }
+    }).catch(() => {});
+
+    function showStatus(msg, type) {
+      statusEl.textContent = '';
+      statusEl.className = 'status visible ' + type;
+      statusEl.appendChild(document.createTextNode(msg));
+    }
+
+    function showProcessing() {
+      const span = document.createElement('span');
+      span.innerHTML = '<span class="spinner"></span>Separating vocals… This may take a minute.';
+      statusEl.textContent = '';
+      statusEl.className = 'status visible processing';
+      statusEl.appendChild(span);
+    }
+
+    function showSuccess(data) {
+      const div = document.createElement('div');
+      const vUrl = data.download_url || data.vocals_download_url;
+      const vName = data.filename || data.vocals_filename;
+      const iUrl = data.instrumental_download_url;
+      const iName = data.instrumental_filename;
+      div.innerHTML = `
+        <span>✓ Separation complete.</span>
+        <div class="stem-block">
+          <h3>Vocals</h3>
+          <div class="audio-player">
+            <audio controls src="${vUrl}" preload="auto"></audio>
+          </div>
+          <a href="${vUrl}" download="${vName}" class="download-btn">Download vocals</a>
+          <p class="file-name">${vName}</p>
+        </div>
+        <div class="stem-block">
+          <h3>Instrumental</h3>
+          <div class="audio-player">
+            <audio controls src="${iUrl}" preload="auto"></audio>
+          </div>
+          <a href="${iUrl}" download="${iName}" class="download-btn">Download instrumental</a>
+          <p class="file-name">${iName}</p>
+        </div>
+      `;
+      statusEl.textContent = '';
+      statusEl.className = 'status visible success';
+      statusEl.appendChild(div);
+    }
+
+    function showError(msg) {
+      showStatus(msg, 'error');
+    }
+
+    uploadZone.addEventListener('click', () => fileInput.click());
+
+    uploadZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadZone.classList.add('dragover');
+    });
+
+    uploadZone.addEventListener('dragleave', () => {
+      uploadZone.classList.remove('dragover');
+    });
+
+    uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (file) handleFile(file);
+    });
+
+    async function handleFile(file) {
+      const allowed = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/ogg', 'audio/mp4', 'audio/aac'];
+      const ext = file.name.split('.').pop().toLowerCase();
+      const validExts = ['mp3', 'wav', 'flac', 'ogg', 'm4a', 'aac'];
+      if (!validExts.includes(ext)) {
+        showError('Unsupported format. Use MP3, WAV, FLAC, OGG, M4A, or AAC.');
+        return;
+      }
+
+      showProcessing();
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('engine', document.getElementById('engine').value);
+
+      try {
+        const res = await fetch('/api/separate', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          showError(data.detail || `Error: ${res.status}`);
+          return;
+        }
+
+        showSuccess(data);
+      } catch (err) {
+        showError('Network error. Is the server running?');
+      }
+    }
+  </script>
+</body>
+</html>
