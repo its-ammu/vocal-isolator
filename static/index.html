@@ -226,12 +226,57 @@
       color: var(--text-muted);
       margin-bottom: 0.35rem;
     }
+
+    .api-key-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.875rem;
+    }
+
+    .api-key-row label {
+      color: var(--text-muted);
+    }
+
+    .api-key-row input {
+      flex: 1;
+      min-width: 12rem;
+      padding: 0.45rem 0.65rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.875rem;
+    }
+
+    .api-key-row button {
+      padding: 0.45rem 0.85rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    .api-key-row button:hover {
+      border-color: var(--accent);
+    }
   </style>
 </head>
 <body>
   <main>
     <h1>Vocal Isolator</h1>
     <p class="subtitle">Extract vocals from any track</p>
+
+    <div class="api-key-row">
+      <label for="apiKeyInput">API key</label>
+      <input type="password" id="apiKeyInput" placeholder="If server uses VOCAL_ISOLATOR_API_KEY" autocomplete="off">
+      <button type="button" id="apiKeySave">Save</button>
+    </div>
 
     <div class="engine-select">
       <label for="engine">Model:</label>
@@ -255,20 +300,46 @@
   </main>
 
   <script>
+    const API_KEY_STORAGE = 'vocal_isolator_api_key';
     const uploadZone = document.getElementById('uploadZone');
     const fileInput = document.getElementById('fileInput');
     const statusEl = document.getElementById('status');
     const engineSelect = document.getElementById('engine');
+    const apiKeyInput = document.getElementById('apiKeyInput');
 
-    fetch('/api/engines').then(r => r.json()).then(({ engines }) => {
-      engineSelect.innerHTML = '';
-      for (const [value, label] of Object.entries(engines)) {
-        const opt = document.createElement('option');
-        opt.value = value;
-        opt.textContent = label;
-        engineSelect.appendChild(opt);
-      }
-    }).catch(() => {});
+    function getApiKey() {
+      return sessionStorage.getItem(API_KEY_STORAGE) || '';
+    }
+
+    function apiHeaders() {
+      const k = getApiKey();
+      if (!k) return {};
+      return { 'X-API-Key': k };
+    }
+
+    document.getElementById('apiKeySave').addEventListener('click', () => {
+      sessionStorage.setItem(API_KEY_STORAGE, apiKeyInput.value.trim());
+      loadEngines();
+    });
+
+    apiKeyInput.value = getApiKey();
+
+    function loadEngines() {
+      fetch('/api/engines', { headers: apiHeaders() })
+        .then(r => r.json())
+        .then(({ engines }) => {
+          engineSelect.innerHTML = '';
+          for (const [value, label] of Object.entries(engines)) {
+            const opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = label;
+            engineSelect.appendChild(opt);
+          }
+        })
+        .catch(() => {});
+    }
+
+    loadEngines();
 
     function showStatus(msg, type) {
       statusEl.textContent = '';
@@ -284,28 +355,58 @@
       statusEl.appendChild(span);
     }
 
-    function showSuccess(data) {
-      const div = document.createElement('div');
+    async function showSuccess(data) {
       const vUrl = data.download_url || data.vocals_download_url;
       const vName = data.filename || data.vocals_filename;
       const iUrl = data.instrumental_download_url;
       const iName = data.instrumental_filename;
+      const h = apiHeaders();
+      const useAuth = Object.keys(h).length > 0;
+
+      let vAudioSrc = vUrl;
+      let iAudioSrc = iUrl;
+      let vDlHref = vUrl;
+      let iDlHref = iUrl;
+
+      if (useAuth) {
+        try {
+          const [vr, ir] = await Promise.all([
+            fetch(vUrl, { headers: h }),
+            fetch(iUrl, { headers: h }),
+          ]);
+          if (!vr.ok || !ir.ok) {
+            const err = await vr.json().catch(() => ({}));
+            showError(err.detail || 'Failed to load audio (check API key)');
+            return;
+          }
+          vAudioSrc = URL.createObjectURL(await vr.blob());
+          iAudioSrc = URL.createObjectURL(await ir.blob());
+          vDlHref = vAudioSrc;
+          iDlHref = iAudioSrc;
+        } catch (e) {
+          showError('Failed to load audio preview');
+          return;
+        }
+      }
+
+      const div = document.createElement('div');
+      const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
       div.innerHTML = `
         <span>✓ Separation complete.</span>
         <div class="stem-block">
           <h3>Vocals</h3>
           <div class="audio-player">
-            <audio controls src="${vUrl}" preload="auto"></audio>
+            <audio controls src="${esc(vAudioSrc)}" preload="auto"></audio>
           </div>
-          <a href="${vUrl}" download="${vName}" class="download-btn">Download vocals</a>
+          <a href="${esc(vDlHref)}" download="${esc(vName)}" class="download-btn">Download vocals</a>
           <p class="file-name">${vName}</p>
         </div>
         <div class="stem-block">
           <h3>Instrumental</h3>
           <div class="audio-player">
-            <audio controls src="${iUrl}" preload="auto"></audio>
+            <audio controls src="${esc(iAudioSrc)}" preload="auto"></audio>
           </div>
-          <a href="${iUrl}" download="${iName}" class="download-btn">Download instrumental</a>
+          <a href="${esc(iDlHref)}" download="${esc(iName)}" class="download-btn">Download instrumental</a>
           <p class="file-name">${iName}</p>
         </div>
       `;
@@ -359,6 +460,7 @@
       try {
         const res = await fetch('/api/separate', {
           method: 'POST',
+          headers: apiHeaders(),
           body: formData,
         });
 
@@ -369,7 +471,7 @@
           return;
         }
 
-        showSuccess(data);
+        await showSuccess(data);
       } catch (err) {
         showError('Network error. Is the server running?');
       }

@@ -1,5 +1,6 @@
 """Vocal isolator web application using Demucs v4 or Audio Separator."""
 
+import os
 import shutil
 import subprocess
 import tempfile
@@ -42,6 +43,35 @@ except ImportError:
 
 BASE_DIR = Path(__file__).resolve().parent
 app = Flask(__name__, static_folder="static", static_url_path="/static")
+
+# API auth: set VOCAL_ISOLATOR_API_KEY to require X-API-Key or Authorization: Bearer on all /api/* routes
+API_KEY = os.environ.get("VOCAL_ISOLATOR_API_KEY", "").strip()
+
+
+def _request_provides_api_key() -> str:
+    """Return API key from X-API-Key or Authorization: Bearer."""
+    key = (request.headers.get("X-API-Key") or "").strip()
+    if key:
+        return key
+    auth = request.headers.get("Authorization") or ""
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip()
+    return ""
+
+
+@app.before_request
+def _require_api_key():
+    if not API_KEY:
+        return None
+    if request.method == "OPTIONS":
+        return None
+    path = request.path or ""
+    if not path.startswith("/api/"):
+        return None
+    if _request_provides_api_key() != API_KEY:
+        return jsonify({"detail": "Unauthorized"}), 401
+    return None
+
 
 # Auto-detect best device: CUDA > MPS (Apple Silicon) > CPU
 DEVICE = (

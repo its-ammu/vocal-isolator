@@ -1,0 +1,40 @@
+# Vocal Isolator — systemd unit (Flask built-in server, no Gunicorn)
+#
+# Install:
+#   sudo cp vocal-isolator.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now vocal-isolator
+#
+# Edit paths below to match your deploy user and project directory before copying.
+
+[Unit]
+Description=Vocal Isolator web app (Flask)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+User=ec2-user
+Group=ec2-user
+
+WorkingDirectory=/home/ec2-user/vocal-isolator
+
+EnvironmentFile=/home/ec2-user/vocal-isolator/.env.local
+
+Environment=PYTHONUNBUFFERED=1
+# systemd does not use your shell PATH. Demucs and audio-separator run `ffmpeg` via subprocess.
+# Put the directory that contains `ffmpeg` FIRST (use a full path — ~ does not work here).
+# Example: Miniconda on ec2-user:
+Environment=PATH=/home/ec2-user/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/home/ec2-user/vocal-isolator/.venv/bin/python -m flask --app app run --host 0.0.0.0 --port 8001 --no-debugger --no-reload
+
+Restart=on-failure
+RestartSec=5
+
+# Hardening (optional; relax if something breaks)
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

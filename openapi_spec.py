@@ -12,10 +12,13 @@ def build_openapi_dict() -> dict:
             "description": (
                 "Separate vocals and instrumental from audio using Demucs v4 or "
                 "Audio Separator (MelBand Roformer). Models are loaded per request "
-                "unless otherwise noted in `/api/engines/status`."
+                "unless otherwise noted in `/api/engines/status`.\n\n"
+                "When VOCAL_ISOLATOR_API_KEY is set on the server, send the same "
+                "value in header X-API-Key or Authorization: Bearer."
             ),
         },
         "servers": [{"url": "/", "description": "Current server"}],
+        "security": [{"ApiKeyAuth": []}],
         "tags": [
             {"name": "meta", "description": "Discovery and engine status"},
             {"name": "separate", "description": "Synchronous separation"},
@@ -294,7 +297,27 @@ def build_openapi_dict() -> dict:
             },
         },
         "components": {
+            "securitySchemes": {
+                "ApiKeyAuth": {
+                    "type": "apiKey",
+                    "in": "header",
+                    "name": "X-API-Key",
+                    "description": "Same value as server env VOCAL_ISOLATOR_API_KEY, "
+                    "or Authorization Bearer with the same secret.",
+                }
+            },
             "responses": {
+                "Unauthorized": {
+                    "description": "Missing or invalid API key",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {"detail": {"type": "string", "example": "Unauthorized"}},
+                            }
+                        }
+                    },
+                },
                 "BadRequest": {
                     "description": "Bad request",
                     "content": {
