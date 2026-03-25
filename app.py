@@ -13,7 +13,7 @@ from pathlib import Path
 
 import torch
 import torchaudio as ta
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, redirect, request, send_file, url_for
 
 import soundfile as sf
 from demucs.apply import apply_model
@@ -149,16 +149,26 @@ def index():
     return send_file(BASE_DIR / "static" / "index.html", mimetype="text/html")
 
 
-@app.route("/api/openapi.json")
+@app.route("/openapi.json")
 def openapi_json():
-    """OpenAPI 3 document (machine-readable)."""
+    """OpenAPI 3 document (machine-readable). Not under /api — no API key required."""
     return jsonify(build_openapi_dict())
 
 
-@app.route("/api/docs")
+@app.route("/docs")
 def swagger_ui():
-    """Swagger UI (interactive docs)."""
+    """Swagger UI. Not under /api — no API key required."""
     return send_file(BASE_DIR / "static" / "swagger.html", mimetype="text/html")
+
+
+@app.route("/api/openapi.json")
+def openapi_json_legacy():
+    return redirect(url_for("openapi_json"), code=308)
+
+
+@app.route("/api/docs")
+def swagger_ui_legacy():
+    return redirect(url_for("swagger_ui"), code=308)
 
 
 def _separate_demucs(vocals_path: Path, instrumental_path: Path, input_path: Path) -> None:

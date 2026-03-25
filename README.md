@@ -55,8 +55,8 @@ The web UI has an **API key** field (stored in `sessionStorage` for that browser
 
 ## API documentation (Swagger)
 
-- **Swagger UI:** [http://localhost:8001/api/docs](http://localhost:8001/api/docs) (adjust host/port to match your server)
-- **OpenAPI JSON:** `GET /api/openapi.json`
+- **Swagger UI:** `GET /docs` (e.g. [http://localhost:8001/docs](http://localhost:8001/docs)) — **no API key**
+- **OpenAPI JSON:** `GET /openapi.json` — **no API key** (legacy `/api/docs` and `/api/openapi.json` redirect here)
 
 ### Engine discovery
 

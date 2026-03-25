@@ -26,19 +26,22 @@ def build_openapi_dict() -> dict:
             {"name": "download", "description": "Fetch output WAV files"},
         ],
         "paths": {
-            "/api/openapi.json": {
+            "/openapi.json": {
                 "get": {
                     "tags": ["meta"],
                     "summary": "OpenAPI document",
+                    "description": "Public; no API key. Legacy: `/api/openapi.json` redirects here.",
                     "responses": {"200": {"description": "OpenAPI 3 JSON"}},
+                    "security": [],
                 }
             },
-            "/api/docs": {
+            "/docs": {
                 "get": {
                     "tags": ["meta"],
                     "summary": "Swagger UI",
-                    "description": "Interactive API documentation (HTML).",
+                    "description": "Interactive API documentation (HTML). Public; no API key. Legacy: `/api/docs` redirects here.",
                     "responses": {"200": {"description": "Swagger UI page"}},
+                    "security": [],
                 }
             },
             "/api/engines": {
