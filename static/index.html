@@ -356,19 +356,21 @@
     }
 
     async function showSuccess(data) {
-      const vUrl = data.download_url || data.vocals_download_url;
+      const vUrl = data.vocals_url || data.download_url || data.vocals_download_url;
       const vName = data.filename || data.vocals_filename;
-      const iUrl = data.instrumental_download_url;
+      const iUrl = data.instrumental_url || data.instrumental_download_url;
       const iName = data.instrumental_filename;
       const h = apiHeaders();
       const useAuth = Object.keys(h).length > 0;
+      const isAbsolute = (u) =>
+        typeof u === 'string' && (u.startsWith('http://') || u.startsWith('https://'));
 
       let vAudioSrc = vUrl;
       let iAudioSrc = iUrl;
       let vDlHref = vUrl;
       let iDlHref = iUrl;
 
-      if (useAuth) {
+      if (useAuth && !isAbsolute(vUrl)) {
         try {
           const [vr, ir] = await Promise.all([
             fetch(vUrl, { headers: h }),

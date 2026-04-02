@@ -14,7 +14,12 @@ def build_openapi_dict() -> dict:
                 "Audio Separator (MelBand Roformer). Models are loaded per request "
                 "unless otherwise noted in `/api/engines/status`.\n\n"
                 "When VOCAL_ISOLATOR_API_KEY is set on the server, send the same "
-                "value in header X-API-Key or Authorization: Bearer."
+                "value in header X-API-Key or Authorization: Bearer.\n\n"
+                "Outputs are uploaded to S3 by default (bucket "
+                "`wmg-acestep-batch-input-test`, overridable via "
+                "`VOCAL_ISOLATOR_S3_BUCKET`; set it empty to store files only on "
+                "this server). Completed responses include presigned HTTPS URLs "
+                "(`vocals_url`, `instrumental_url`) and `s3://` URIs."
             ),
         },
         "servers": [{"url": "/", "description": "Current server"}],
@@ -73,24 +78,6 @@ def build_openapi_dict() -> dict:
             "/api/engines/status": {
                 "get": {
                     "tags": ["meta"],
-                    "summary": "Engines available, versions, device",
-                    "responses": {
-                        "200": {
-                            "description": "Runtime and per-engine status",
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "$ref": "#/components/schemas/EnginesStatus"
-                                    }
-                                }
-                            },
-                        }
-                    },
-                }
-            },
-            "/api/engines/status": {
-                "get": {
-                    "tags": ["meta"],
                     "summary": "Engine availability and runtime",
                     "description": (
                         "Which engines are installed/importable, which model each uses, "
@@ -98,7 +85,7 @@ def build_openapi_dict() -> dict:
                     ),
                     "responses": {
                         "200": {
-                            "description": "Status payload",
+                            "description": "Runtime and per-engine status",
                             "content": {
                                 "application/json": {
                                     "schema": {"$ref": "#/components/schemas/EnginesStatus"}
@@ -137,20 +124,44 @@ def build_openapi_dict() -> dict:
                     },
                     "responses": {
                         "200": {
-                            "description": "Paths to download stems",
+                            "description": (
+                                "When S3 is enabled: presigned `vocals_url` / "
+                                "`instrumental_url` and `vocals_s3_uri` / "
+                                "`instrumental_s3_uri`. Otherwise relative "
+                                "`download_url` paths on this server."
+                            ),
                             "content": {
                                 "application/json": {
                                     "schema": {
                                         "type": "object",
                                         "properties": {
                                             "job_id": {"type": "string"},
-                                            "download_url": {"type": "string"},
                                             "filename": {"type": "string"},
-                                            "instrumental_download_url": {
-                                                "type": "string"
-                                            },
                                             "instrumental_filename": {
                                                 "type": "string"
+                                            },
+                                            "vocals_url": {
+                                                "type": "string",
+                                                "description": "Presigned GET URL (S3)",
+                                            },
+                                            "instrumental_url": {
+                                                "type": "string",
+                                                "description": "Presigned GET URL (S3)",
+                                            },
+                                            "vocals_s3_uri": {"type": "string"},
+                                            "instrumental_s3_uri": {"type": "string"},
+                                            "bucket": {"type": "string"},
+                                            "s3_prefix": {"type": "string"},
+                                            "presign_expires_seconds": {
+                                                "type": "integer"
+                                            },
+                                            "download_url": {
+                                                "type": "string",
+                                                "description": "Relative path when S3 disabled",
+                                            },
+                                            "instrumental_download_url": {
+                                                "type": "string",
+                                                "description": "Relative path when S3 disabled",
                                             },
                                         },
                                     }

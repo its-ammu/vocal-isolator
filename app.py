@@ -21,6 +21,7 @@ from demucs.audio import AudioFile, convert_audio, prevent_clip
 from demucs.pretrained import get_model
 
 from openapi_spec import build_openapi_dict
+from s3_outputs import s3_enabled, upload_stems
 
 # All engines we know about (for status); selectable engines omit unavailable optional deps.
 ENGINE_CATALOG = {
@@ -122,14 +123,31 @@ def _process_task(
                 TASKS[task_id]["status"] = "running"
         _run_separation(engine, input_path, vocals_path, instrumental_path)
         base = base_url.rstrip("/")
+        if s3_enabled():
+            s3_meta = upload_stems(task_id, vocals_path, instrumental_path)
+            vocals_path.unlink(missing_ok=True)
+            instrumental_path.unlink(missing_ok=True)
+            urls = {
+                "vocals_url": s3_meta["vocals_url"],
+                "instrumental_url": s3_meta["instrumental_url"],
+                "vocals_s3_uri": s3_meta["vocals_s3_uri"],
+                "instrumental_s3_uri": s3_meta["instrumental_s3_uri"],
+                "bucket": s3_meta["bucket"],
+                "s3_prefix": s3_meta["prefix"],
+                "presign_expires_seconds": s3_meta["presign_expires_seconds"],
+            }
+        else:
+            urls = {
+                "vocals_url": f"{base}/api/download/{task_id}/vocals",
+                "instrumental_url": f"{base}/api/download/{task_id}/instrumental",
+            }
         with _tasks_lock:
             if task_id in TASKS:
                 TASKS[task_id].update(
                     {
                         "status": "completed",
                         "job_id": task_id,
-                        "vocals_url": f"{base}/api/download/{task_id}/vocals",
-                        "instrumental_url": f"{base}/api/download/{task_id}/instrumental",
+                        **urls,
                         "vocals_filename": f"{original_stem}_vocals.wav",
                         "instrumental_filename": f"{original_stem}_instrumental.wav",
                     }
@@ -479,15 +497,31 @@ def separate_vocals():
 
         _run_separation(engine, input_path, vocals_path, instrumental_path)
 
-        return jsonify(
-            {
-                "job_id": job_id,
-                "download_url": f"/api/download/{job_id}/vocals",
-                "filename": f"{stem}_vocals.wav",
-                "instrumental_download_url": f"/api/download/{job_id}/instrumental",
-                "instrumental_filename": f"{stem}_instrumental.wav",
-            }
-        )
+        body: dict = {
+            "job_id": job_id,
+            "filename": f"{stem}_vocals.wav",
+            "instrumental_filename": f"{stem}_instrumental.wav",
+        }
+        if s3_enabled():
+            s3_meta = upload_stems(job_id, vocals_path, instrumental_path)
+            vocals_path.unlink(missing_ok=True)
+            instrumental_path.unlink(missing_ok=True)
+            body.update(
+                {
+                    "vocals_url": s3_meta["vocals_url"],
+                    "instrumental_url": s3_meta["instrumental_url"],
+                    "vocals_s3_uri": s3_meta["vocals_s3_uri"],
+                    "instrumental_s3_uri": s3_meta["instrumental_s3_uri"],
+                    "bucket": s3_meta["bucket"],
+                    "s3_prefix": s3_meta["prefix"],
+                    "presign_expires_seconds": s3_meta["presign_expires_seconds"],
+                }
+            )
+        else:
+            body["download_url"] = f"/api/download/{job_id}/vocals"
+            body["instrumental_download_url"] = f"/api/download/{job_id}/instrumental"
+
+        return jsonify(body)
 
     except Exception as e:
         traceback.print_exc()
