@@ -13,14 +13,14 @@ from pathlib import Path
 
 import torch
 import torchaudio as ta
-from flask import Flask, jsonify, redirect, request, send_file, url_for
+from flask import Blueprint, Flask, jsonify, redirect, request, send_file, url_for
 
 import soundfile as sf
 from demucs.apply import apply_model
 from demucs.audio import AudioFile, convert_audio, prevent_clip
 from demucs.pretrained import get_model
 
-from openapi_spec import build_openapi_dict
+from openapi_spec import APP_URL_PREFIX, build_openapi_dict
 from s3_outputs import s3_enabled, upload_stems
 
 # All engines we know about (for status); selectable engines omit unavailable optional deps.
@@ -43,9 +43,14 @@ except ImportError:
     pass
 
 BASE_DIR = Path(__file__).resolve().parent
-app = Flask(__name__, static_folder="static", static_url_path="/static")
+app = Flask(
+    __name__,
+    static_folder="static",
+    static_url_path=f"{APP_URL_PREFIX}/static",
+)
+vocal_isolator_bp = Blueprint("vocal_isolator", __name__)
 
-# API auth: set VOCAL_ISOLATOR_API_KEY to require X-API-Key or Authorization: Bearer on all /api/* routes
+# API auth: set VOCAL_ISOLATOR_API_KEY to require X-API-Key or Authorization: Bearer on prefixed /api/* routes
 API_KEY = os.environ.get("VOCAL_ISOLATOR_API_KEY", "").strip()
 
 
@@ -67,7 +72,8 @@ def _require_api_key():
     if request.method == "OPTIONS":
         return None
     path = request.path or ""
-    if not path.startswith("/api/"):
+    api_root = f"{APP_URL_PREFIX}/api/"
+    if not path.startswith(api_root):
         return None
     if _request_provides_api_key() != API_KEY:
         return jsonify({"detail": "Unauthorized"}), 401
@@ -123,6 +129,7 @@ def _process_task(
                 TASKS[task_id]["status"] = "running"
         _run_separation(engine, input_path, vocals_path, instrumental_path)
         base = base_url.rstrip("/")
+        dl_base = f"{base}{APP_URL_PREFIX}"
         if s3_enabled():
             s3_meta = upload_stems(task_id, vocals_path, instrumental_path)
             vocals_path.unlink(missing_ok=True)
@@ -138,8 +145,8 @@ def _process_task(
             }
         else:
             urls = {
-                "vocals_url": f"{base}/api/download/{task_id}/vocals",
-                "instrumental_url": f"{base}/api/download/{task_id}/instrumental",
+                "vocals_url": f"{dl_base}/api/download/{task_id}/vocals",
+                "instrumental_url": f"{dl_base}/api/download/{task_id}/instrumental",
             }
         with _tasks_lock:
             if task_id in TASKS:
@@ -161,32 +168,32 @@ def _process_task(
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-@app.route("/")
+@vocal_isolator_bp.route("/")
 def index():
     """Serve the main page."""
     return send_file(BASE_DIR / "static" / "index.html", mimetype="text/html")
 
 
-@app.route("/openapi.json")
+@vocal_isolator_bp.route("/openapi.json")
 def openapi_json():
     """OpenAPI 3 document (machine-readable). Not under /api — no API key required."""
     return jsonify(build_openapi_dict())
 
 
-@app.route("/docs")
+@vocal_isolator_bp.route("/docs")
 def swagger_ui():
     """Swagger UI. Not under /api — no API key required."""
     return send_file(BASE_DIR / "static" / "swagger.html", mimetype="text/html")
 
 
-@app.route("/api/openapi.json")
+@vocal_isolator_bp.route("/api/openapi.json")
 def openapi_json_legacy():
-    return redirect(url_for("openapi_json"), code=308)
+    return redirect(url_for("vocal_isolator.openapi_json"), code=308)
 
 
-@app.route("/api/docs")
+@vocal_isolator_bp.route("/api/docs")
 def swagger_ui_legacy():
-    return redirect(url_for("swagger_ui"), code=308)
+    return redirect(url_for("vocal_isolator.swagger_ui"), code=308)
 
 
 def _separate_demucs(vocals_path: Path, instrumental_path: Path, input_path: Path) -> None:
@@ -318,13 +325,13 @@ def _separate_audio_separator(
         shutil.rmtree(sep_dir, ignore_errors=True)
 
 
-@app.route("/api/engines")
+@vocal_isolator_bp.route("/api/engines")
 def list_engines():
     """Return selectable separation engines (same as UI dropdown)."""
     return jsonify({"engines": ENGINES})
 
 
-@app.route("/api/engines/status")
+@vocal_isolator_bp.route("/api/engines/status")
 def engines_status():
     """
     All engines in the catalog, whether dependencies are importable,
@@ -371,11 +378,11 @@ def engines_status():
     )
 
 
-@app.route("/api/tasks", methods=["POST"])
+@vocal_isolator_bp.route("/api/tasks", methods=["POST"])
 def create_task():
     """
     Create an async separation task. Returns 202 with task_id and poll_url.
-    Poll GET /api/tasks/<task_id> until status is completed or failed.
+    Poll GET .../api/tasks/<task_id> until status is completed or failed.
     """
     if "file" not in request.files:
         return jsonify({"detail": "No file provided"}), 400
@@ -401,7 +408,7 @@ def create_task():
     file.save(str(input_path))
 
     base_url = request.host_url or request.url_root or "http://localhost:8001/"
-    poll_url = f"{base_url.rstrip('/')}/api/tasks/{task_id}"
+    poll_url = f"{base_url.rstrip('/')}{APP_URL_PREFIX}/api/tasks/{task_id}"
 
     with _tasks_lock:
         TASKS[task_id] = {
@@ -428,7 +435,7 @@ def create_task():
     )
 
 
-@app.route("/api/tasks/<task_id>", methods=["GET"])
+@vocal_isolator_bp.route("/api/tasks/<task_id>", methods=["GET"])
 def get_task(task_id: str):
     """Poll task status; when completed, includes vocals_url and instrumental_url."""
     if not task_id.replace("_", "").replace("-", "").isalnum():
@@ -444,7 +451,7 @@ def get_task(task_id: str):
     return jsonify(out)
 
 
-@app.route("/api/tasks/<task_id>", methods=["DELETE"])
+@vocal_isolator_bp.route("/api/tasks/<task_id>", methods=["DELETE"])
 def delete_task(task_id: str):
     """Remove task metadata and output WAV files (optional cleanup)."""
     if not task_id.replace("_", "").replace("-", "").isalnum():
@@ -462,7 +469,7 @@ def delete_task(task_id: str):
     return "", 204
 
 
-@app.route("/api/separate", methods=["POST"])
+@vocal_isolator_bp.route("/api/separate", methods=["POST"])
 def separate_vocals():
     """
     Upload an audio file and separate vocals.
@@ -518,8 +525,8 @@ def separate_vocals():
                 }
             )
         else:
-            body["download_url"] = f"/api/download/{job_id}/vocals"
-            body["instrumental_download_url"] = f"/api/download/{job_id}/instrumental"
+            body["download_url"] = f"{APP_URL_PREFIX}/api/download/{job_id}/vocals"
+            body["instrumental_download_url"] = f"{APP_URL_PREFIX}/api/download/{job_id}/instrumental"
 
         return jsonify(body)
 
@@ -552,16 +559,31 @@ def _download_stem(job_id: str, stem: str):
     )
 
 
-@app.route("/api/download/<job_id>/<stem>")
+@vocal_isolator_bp.route("/api/download/<job_id>/<stem>")
 def download_stem(job_id, stem):
     """Download vocals or instrumental WAV."""
     return _download_stem(job_id, stem)
 
 
-@app.route("/api/download/<job_id>")
+@vocal_isolator_bp.route("/api/download/<job_id>")
 def download_vocals_legacy(job_id):
     """Legacy URL: same as vocals stem."""
     return _download_stem(job_id, "vocals")
+
+
+app.register_blueprint(vocal_isolator_bp, url_prefix=APP_URL_PREFIX)
+
+
+@app.route("/")
+def root_ok():
+    """Minimal probe; UI and API are under the vocal-isolator prefix."""
+    return "ok", 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
+@app.route("/health")
+def health():
+    """Health check at site root (not under the vocal-isolator prefix)."""
+    return jsonify({"status": "ok"})
 
 
 if __name__ == "__main__":

@@ -300,6 +300,7 @@
   </main>
 
   <script>
+    const APP_BASE = '/vocal-isolator';
     const API_KEY_STORAGE = 'vocal_isolator_api_key';
     const uploadZone = document.getElementById('uploadZone');
     const fileInput = document.getElementById('fileInput');
@@ -325,7 +326,7 @@
     apiKeyInput.value = getApiKey();
 
     function loadEngines() {
-      fetch('/api/engines', { headers: apiHeaders() })
+      fetch(`${APP_BASE}/api/engines`, { headers: apiHeaders() })
         .then(r => r.json())
         .then(({ engines }) => {
           engineSelect.innerHTML = '';
@@ -460,7 +461,7 @@
       formData.append('engine', document.getElementById('engine').value);
 
       try {
-        const res = await fetch('/api/separate', {
+        const res = await fetch(`${APP_BASE}/api/separate`, {
           method: 'POST',
           headers: apiHeaders(),
           body: formData,

@@ -2,8 +2,12 @@
 
 OPENAPI_VERSION = "1.0.0"
 
+# URL prefix for the app (must match app.py / Flask blueprint). Root `/` is a plain "ok" probe.
+APP_URL_PREFIX = "/vocal-isolator"
+
 
 def build_openapi_dict() -> dict:
+    P = APP_URL_PREFIX
     return {
         "openapi": "3.0.3",
         "info": {
@@ -12,7 +16,7 @@ def build_openapi_dict() -> dict:
             "description": (
                 "Separate vocals and instrumental from audio using Demucs v4 or "
                 "Audio Separator (MelBand Roformer). Models are loaded per request "
-                "unless otherwise noted in `/api/engines/status`.\n\n"
+                f"unless otherwise noted in `{P}/api/engines/status`.\n\n"
                 "When VOCAL_ISOLATOR_API_KEY is set on the server, send the same "
                 "value in header X-API-Key or Authorization: Bearer.\n\n"
                 "Outputs are uploaded to S3 by default (bucket "
@@ -22,7 +26,7 @@ def build_openapi_dict() -> dict:
                 "(`vocals_url`, `instrumental_url`) and `s3://` URIs."
             ),
         },
-        "servers": [{"url": "/", "description": "Current server"}],
+        "servers": [{"url": f"{P}/", "description": "Vocal isolator (all API paths use this prefix)"}],
         "security": [{"ApiKeyAuth": []}],
         "tags": [
             {"name": "meta", "description": "Discovery and engine status"},
@@ -31,25 +35,25 @@ def build_openapi_dict() -> dict:
             {"name": "download", "description": "Fetch output WAV files"},
         ],
         "paths": {
-            "/openapi.json": {
+            f"{P}/openapi.json": {
                 "get": {
                     "tags": ["meta"],
                     "summary": "OpenAPI document",
-                    "description": "Public; no API key. Legacy: `/api/openapi.json` redirects here.",
+                    "description": f"Public; no API key. Legacy: `{P}/api/openapi.json` redirects here.",
                     "responses": {"200": {"description": "OpenAPI 3 JSON"}},
                     "security": [],
                 }
             },
-            "/docs": {
+            f"{P}/docs": {
                 "get": {
                     "tags": ["meta"],
                     "summary": "Swagger UI",
-                    "description": "Interactive API documentation (HTML). Public; no API key. Legacy: `/api/docs` redirects here.",
+                    "description": f"Interactive API documentation (HTML). Public; no API key. Legacy: `{P}/api/docs` redirects here.",
                     "responses": {"200": {"description": "Swagger UI page"}},
                     "security": [],
                 }
             },
-            "/api/engines": {
+            f"{P}/api/engines": {
                 "get": {
                     "tags": ["meta"],
                     "summary": "List selectable engines",
@@ -75,7 +79,7 @@ def build_openapi_dict() -> dict:
                     },
                 }
             },
-            "/api/engines/status": {
+            f"{P}/api/engines/status": {
                 "get": {
                     "tags": ["meta"],
                     "summary": "Engine availability and runtime",
@@ -95,7 +99,7 @@ def build_openapi_dict() -> dict:
                     },
                 }
             },
-            "/api/separate": {
+            f"{P}/api/separate": {
                 "post": {
                     "tags": ["separate"],
                     "summary": "Separate (synchronous)",
@@ -173,7 +177,7 @@ def build_openapi_dict() -> dict:
                     },
                 }
             },
-            "/api/tasks": {
+            f"{P}/api/tasks": {
                 "post": {
                     "tags": ["tasks"],
                     "summary": "Create async task",
@@ -220,7 +224,7 @@ def build_openapi_dict() -> dict:
                     },
                 }
             },
-            "/api/tasks/{task_id}": {
+            f"{P}/api/tasks/{{task_id}}": {
                 "get": {
                     "tags": ["tasks"],
                     "summary": "Poll task status",
@@ -254,7 +258,7 @@ def build_openapi_dict() -> dict:
                     },
                 },
             },
-            "/api/download/{job_id}/{stem}": {
+            f"{P}/api/download/{{job_id}}/{{stem}}": {
                 "get": {
                     "tags": ["download"],
                     "summary": "Download a stem",
@@ -286,7 +290,7 @@ def build_openapi_dict() -> dict:
                     },
                 }
             },
-            "/api/download/{job_id}": {
+            f"{P}/api/download/{{job_id}}": {
                 "get": {
                     "tags": ["download"],
                     "summary": "Download vocals (legacy)",
