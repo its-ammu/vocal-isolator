@@ -327,10 +327,19 @@
 
     function loadEngines() {
       fetch(`${APP_BASE}/api/engines`, { headers: apiHeaders() })
-        .then(r => r.json())
-        .then(({ engines }) => {
+        .then((r) => {
+          if (r.status === 401) {
+            showError(
+              'This server requires an API key. Enter the same value as VOCAL_ISOLATOR_API_KEY on the server, then click Save.'
+            );
+            return null;
+          }
+          return r.json();
+        })
+        .then((data) => {
+          if (!data || !data.engines) return;
           engineSelect.innerHTML = '';
-          for (const [value, label] of Object.entries(engines)) {
+          for (const [value, label] of Object.entries(data.engines)) {
             const opt = document.createElement('option');
             opt.value = value;
             opt.textContent = label;
@@ -470,6 +479,12 @@
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
+          if (res.status === 401) {
+            showError(
+              'Unauthorized — add the server API key above (VOCAL_ISOLATOR_API_KEY) and click Save, then try again.'
+            );
+            return;
+          }
           showError(data.detail || `Error: ${res.status}`);
           return;
         }

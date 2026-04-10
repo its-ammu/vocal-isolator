@@ -50,7 +50,8 @@ app = Flask(
 )
 vocal_isolator_bp = Blueprint("vocal_isolator", __name__)
 
-# API auth: set VOCAL_ISOLATOR_API_KEY to require X-API-Key or Authorization: Bearer on prefixed /api/* routes
+# API auth: set VOCAL_ISOLATOR_API_KEY to require X-API-Key or Authorization: Bearer on most /api/* routes.
+# GET /api/engines is exempt so the browser UI can load engine labels before the user pastes a key.
 API_KEY = os.environ.get("VOCAL_ISOLATOR_API_KEY", "").strip()
 
 
@@ -74,6 +75,9 @@ def _require_api_key():
     path = request.path or ""
     api_root = f"{APP_URL_PREFIX}/api/"
     if not path.startswith(api_root):
+        return None
+    engines_path = f"{APP_URL_PREFIX}/api/engines".rstrip("/")
+    if request.method == "GET" and path.rstrip("/") == engines_path:
         return None
     if _request_provides_api_key() != API_KEY:
         return jsonify({"detail": "Unauthorized"}), 401

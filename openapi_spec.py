@@ -18,7 +18,9 @@ def build_openapi_dict() -> dict:
                 "Audio Separator (MelBand Roformer). Models are loaded per request "
                 f"unless otherwise noted in `{P}/api/engines/status`.\n\n"
                 "When VOCAL_ISOLATOR_API_KEY is set on the server, send the same "
-                "value in header X-API-Key or Authorization: Bearer.\n\n"
+                "value in header X-API-Key or Authorization: Bearer on protected "
+                "endpoints (not required for `GET /api/engines`, so the web UI can "
+                "load the model list before you paste a key).\n\n"
                 "Outputs are uploaded to S3 by default (bucket "
                 "`wmg-acestep-batch-input-test`, overridable via "
                 "`VOCAL_ISOLATOR_S3_BUCKET`; set it empty to store files only on "
@@ -57,6 +59,8 @@ def build_openapi_dict() -> dict:
                 "get": {
                     "tags": ["meta"],
                     "summary": "List selectable engines",
+                    "description": "Public even when VOCAL_ISOLATOR_API_KEY is set (browser UI needs labels before a key is entered).",
+                    "security": [],
                     "responses": {
                         "200": {
                             "description": "Map of engine id to display label",
