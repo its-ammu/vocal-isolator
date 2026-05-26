@@ -578,15 +578,9 @@ def download_vocals_legacy(job_id):
 app.register_blueprint(vocal_isolator_bp, url_prefix=APP_URL_PREFIX)
 
 
-@app.route("/")
-def root_ok():
-    """Minimal probe; UI and API are under the vocal-isolator prefix."""
-    return "ok", 200, {"Content-Type": "text/plain; charset=utf-8"}
-
-
 @app.route("/health")
 def health():
-    """Health check at site root (not under the vocal-isolator prefix)."""
+    """Health check at site root."""
     return jsonify({"status": "ok"})
 
 

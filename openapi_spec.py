@@ -2,8 +2,9 @@
 
 OPENAPI_VERSION = "1.0.0"
 
-# URL prefix for the app (must match app.py / Flask blueprint). Root `/` is a plain "ok" probe.
-APP_URL_PREFIX = "/vocal-isolator"
+# URL prefix for the app (must match app.py / Flask blueprint).
+# Set to "" to serve the UI and API at the site root.
+APP_URL_PREFIX = ""
 
 
 def build_openapi_dict() -> dict:
