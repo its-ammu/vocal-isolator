@@ -1,10 +1,19 @@
 """OpenAPI 3.0 specification for the Vocal Isolator API."""
 
+import os
+
 OPENAPI_VERSION = "1.0.0"
 
-# URL prefix for the app (must match app.py / Flask blueprint).
-# Set to "" to serve the UI and API at the site root.
-APP_URL_PREFIX = ""
+# External URL prefix (what browsers and external clients see).
+#
+# Flask itself always routes at the site root; this value is ONLY prepended to
+# URLs the app advertises (UI fetch base, poll_url, download_url, OpenAPI paths).
+#
+# Leave empty for direct access. Set it when a reverse proxy (e.g. ALB) strips
+# a path prefix before forwarding — for example `APP_URL_PREFIX=/stems` if
+# external traffic hits `https://host/stems/...` and the proxy forwards
+# `/api/...` to this app.
+APP_URL_PREFIX = os.environ.get("APP_URL_PREFIX", "").strip().rstrip("/")
 
 
 def build_openapi_dict() -> dict:

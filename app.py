@@ -13,7 +13,7 @@ from pathlib import Path
 
 import torch
 import torchaudio as ta
-from flask import Blueprint, Flask, jsonify, redirect, request, send_file, url_for
+from flask import Blueprint, Flask, jsonify, redirect, request, send_file
 
 import soundfile as sf
 from demucs.apply import apply_model
@@ -43,10 +43,13 @@ except ImportError:
     pass
 
 BASE_DIR = Path(__file__).resolve().parent
+# Flask serves static files at /static internally. When behind a reverse proxy
+# stripping a path prefix (e.g. ALB at /stems), the browser hits
+# /stems/static/* and the proxy forwards /static/* to this app.
 app = Flask(
     __name__,
     static_folder="static",
-    static_url_path=f"{APP_URL_PREFIX}/static",
+    static_url_path="/static",
 )
 vocal_isolator_bp = Blueprint("vocal_isolator", __name__)
 
@@ -73,11 +76,11 @@ def _require_api_key():
     if request.method == "OPTIONS":
         return None
     path = request.path or ""
-    api_root = f"{APP_URL_PREFIX}/api/"
-    if not path.startswith(api_root):
+    # request.path is what Flask sees — already stripped of any external prefix
+    # (e.g. ALB removes /stems before forwarding), so match the raw routes.
+    if not path.startswith("/api/"):
         return None
-    engines_path = f"{APP_URL_PREFIX}/api/engines".rstrip("/")
-    if request.method == "GET" and path.rstrip("/") == engines_path:
+    if request.method == "GET" and path.rstrip("/") == "/api/engines":
         return None
     if _request_provides_api_key() != API_KEY:
         return jsonify({"detail": "Unauthorized"}), 401
@@ -172,10 +175,23 @@ def _process_task(
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def _render_html_with_prefix(filename: str):
+    """Return static HTML with `__APP_BASE__` placeholders replaced by the
+    configured external prefix (empty by default, e.g. `/stems` behind ALB)."""
+    html = (BASE_DIR / "static" / filename).read_text(encoding="utf-8")
+    html = html.replace("__APP_BASE__", APP_URL_PREFIX)
+    return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+
+
+def _prefixed(path: str) -> str:
+    """Prepend the external URL prefix to a Flask-internal path."""
+    return f"{APP_URL_PREFIX}{path}"
+
+
 @vocal_isolator_bp.route("/")
 def index():
     """Serve the main page."""
-    return send_file(BASE_DIR / "static" / "index.html", mimetype="text/html")
+    return _render_html_with_prefix("index.html")
 
 
 @vocal_isolator_bp.route("/openapi.json")
@@ -187,17 +203,17 @@ def openapi_json():
 @vocal_isolator_bp.route("/docs")
 def swagger_ui():
     """Swagger UI. Not under /api — no API key required."""
-    return send_file(BASE_DIR / "static" / "swagger.html", mimetype="text/html")
+    return _render_html_with_prefix("swagger.html")
 
 
 @vocal_isolator_bp.route("/api/openapi.json")
 def openapi_json_legacy():
-    return redirect(url_for("vocal_isolator.openapi_json"), code=308)
+    return redirect(_prefixed("/openapi.json"), code=308)
 
 
 @vocal_isolator_bp.route("/api/docs")
 def swagger_ui_legacy():
-    return redirect(url_for("vocal_isolator.swagger_ui"), code=308)
+    return redirect(_prefixed("/docs"), code=308)
 
 
 def _separate_demucs(vocals_path: Path, instrumental_path: Path, input_path: Path) -> None:
@@ -575,7 +591,9 @@ def download_vocals_legacy(job_id):
     return _download_stem(job_id, "vocals")
 
 
-app.register_blueprint(vocal_isolator_bp, url_prefix=APP_URL_PREFIX)
+# Flask always serves routes at the site root. External path prefixes (e.g.
+# ALB /stems) are handled by APP_URL_PREFIX in URL builders, not here.
+app.register_blueprint(vocal_isolator_bp)
 
 
 @app.route("/health")
