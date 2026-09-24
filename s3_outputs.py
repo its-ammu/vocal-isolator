@@ -11,12 +11,10 @@ from botocore.config import Config as BotoConfig
 
 
 def _bucket() -> str | None:
-    """Default bucket wmg-acestep-batch-input-test; set VOCAL_ISOLATOR_S3_BUCKET= to disable S3."""
-    raw = os.environ.get("VOCAL_ISOLATOR_S3_BUCKET")
-    if raw is not None:
-        b = raw.strip()
-        return b or None
-    return "wmg-acestep-batch-input-test"
+    """S3 is opt-in: set VOCAL_ISOLATOR_S3_BUCKET to a bucket name to enable it.
+    Unset or empty (the default) means outputs are served from local disk instead."""
+    raw = os.environ.get("VOCAL_ISOLATOR_S3_BUCKET", "").strip()
+    return raw or None
 
 
 def s3_enabled() -> bool:

@@ -6,3 +6,10 @@ outputs/
 *.mp3
 .DS_Store
 .python-version
+.env
+.env.*
+!.env.example
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
