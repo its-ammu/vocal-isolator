@@ -30,10 +30,12 @@ uv run python app.py
 
 Or with Flask's dev server:
 ```bash
-uv run flask --app app run --host 0.0.0.0 --port 8000
+uv run flask --app app run --host 0.0.0.0 --port 8001
 ```
 
-Then open http://localhost:8000 in your browser.
+Then open http://localhost:8001 in your browser.
+
+Both entry points run with Flask's debug/reloader off by default. Set `FLASK_DEBUG=1` to enable them for local development (never in production — the debugger allows arbitrary code execution).
 
 ## API authentication (optional)
 
@@ -52,6 +54,19 @@ curl -sS -H "X-API-Key: $VOCAL_ISOLATOR_API_KEY" http://localhost:8001/api/engin
 ```
 
 The web UI has an **API key** field (stored in `sessionStorage` for that browser only) so uploads work when the server requires a key.
+
+## S3 output storage (optional)
+
+By default, output WAV files are stored on the server's local disk and served from `/api/download/...`. To instead upload outputs to S3 and return presigned URLs, set:
+
+| Variable | Default | Description |
+|---|---|---|
+| `VOCAL_ISOLATOR_S3_BUCKET` | *(unset — S3 disabled)* | Bucket name; setting this enables S3 uploads |
+| `VOCAL_ISOLATOR_S3_PREFIX` | `vocal-isolator` | Key prefix within the bucket |
+| `VOCAL_ISOLATOR_S3_PRESIGN_EXPIRES` | `604800` (7 days) | Presigned URL expiry, in seconds |
+| `AWS_REGION` / `AWS_DEFAULT_REGION` | `us-east-1` | Bucket region |
+
+Requires standard AWS credentials (env vars, shared config, or an instance/task role) with `s3:PutObject` and `s3:GetObject` on the bucket.
 
 ## API documentation (Swagger)
 
@@ -162,3 +177,11 @@ Then: `sudo systemctl daemon-reload && sudo systemctl restart vocal-isolator`.
 **Miniconda / conda:** `ffmpeg` is often under `~/miniconda3/bin`. systemd does **not** expand `~` — use the full path, e.g. prepend `/home/ec2-user/miniconda3/bin` to `PATH` in the unit file (see `deploy/vocal-isolator.service`) or in `.env.local`:
 
 `PATH=/home/ec2-user/miniconda3/bin:/usr/local/bin:/usr/bin:/bin`
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+[MIT](LICENSE)

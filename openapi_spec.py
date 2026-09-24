@@ -31,11 +31,10 @@ def build_openapi_dict() -> dict:
                 "value in header X-API-Key or Authorization: Bearer on protected "
                 "endpoints (not required for `GET /api/engines`, so the web UI can "
                 "load the model list before you paste a key).\n\n"
-                "Outputs are uploaded to S3 by default (bucket "
-                "`wmg-acestep-batch-input-test`, overridable via "
-                "`VOCAL_ISOLATOR_S3_BUCKET`; set it empty to store files only on "
-                "this server). Completed responses include presigned HTTPS URLs "
-                "(`vocals_url`, `instrumental_url`) and `s3://` URIs."
+                "Outputs are stored on this server by default. Set "
+                "`VOCAL_ISOLATOR_S3_BUCKET` to a bucket name to instead upload "
+                "outputs to S3; completed responses then include presigned "
+                "HTTPS URLs (`vocals_url`, `instrumental_url`) and `s3://` URIs."
             ),
         },
         "servers": [{"url": f"{P}/", "description": "Vocal isolator (all API paths use this prefix)"}],
